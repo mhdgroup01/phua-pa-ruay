@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#6366f1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>M</title>
+<title>ผัวพารวย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&family=Noto+Sans+Lao:wght@300;400;500;600;700&family=Noto+Serif+Lao:wght@400;500;600;700&family=Phetsarath:wght@400;700&family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -666,6 +666,9 @@ h1, h2, h3, .display {
 .quick-field { width: 100%; padding: 10px 12px; font-size: 17px; border: 1px solid rgba(255,255,255,0.25); border-radius: 10px; background: rgba(255,255,255,0.9); color: #1e1b4b; font-family: inherit; outline: none; }
 .quick-field:focus { background: white; border-color: rgba(255,255,255,0.6); }
 .quick-field.bill-amount { font-weight: 600; font-family: var(--font-display); }
+/* Smaller compact date inputs inside bill rows — single value, no need for full height */
+.bill-input-row input[type="date"].quick-field,
+.expense-special-row input[type="date"].quick-field { padding: 6px 10px; font-size: 14px; border-radius: 8px; width: auto; min-width: 140px; max-width: 180px; }
 .quick-btn-primary { background: rgba(255,255,255,0.95); color: #1e1b4b; border: none; padding: 10px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; font-family: inherit; }
 .quick-btn-primary:hover { background: white; }
 .quick-btn-secondary { background: rgba(255,255,255,0.18); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 10px; border-radius: 10px; font-size: 16px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; font-family: inherit; }
@@ -1286,7 +1289,7 @@ h1, h2, h3, .display {
 <div class="toast" id="toast"></div>
 
 <script>
-const APP_VERSION = '1.74.0';
+const APP_VERSION = '1.75.0';
 
 const SETTINGS_KEY = 'iet:settings:v1';
 const LANG_OPTIONS = {
