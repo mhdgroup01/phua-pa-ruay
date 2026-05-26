@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#6366f1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>M</title>
+<title>ผัวพารวย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&family=Noto+Sans+Lao:wght@300;400;500;600;700&family=Noto+Serif+Lao:wght@400;500;600;700&family=Phetsarath:wght@400;700&family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1181,6 +1181,18 @@ h1, h2, h3, .display {
   </div>
 </div>
 
+<div class="modal-overlay" id="confirm-save-modal">
+  <div class="modal" style="max-width: 480px;">
+    <div class="modal-title"><i class="ti ti-clipboard-check" style="color: var(--primary);"></i> <span data-i18n="confirm_save_title">ยืนยันการบันทึก</span></div>
+    <div style="font-size: 14px; color: var(--text-2); margin-bottom: 14px;" data-i18n="confirm_save_subtitle">กรุณาตรวจสอบความถูกต้อง</div>
+    <div id="confirm-save-summary" style="margin-bottom: 16px;"></div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <button class="btn btn-secondary" id="confirm-save-cancel"><i class="ti ti-arrow-back"></i> <span data-i18n="confirm_back_edit">กลับไปแก้ไข</span></button>
+      <button class="btn" id="confirm-save-ok" style="background: var(--grad-green); color: white;"><i class="ti ti-check"></i> <span data-i18n="confirm_yes_save">ถูกต้อง บันทึก</span></button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="password-modal">
   <div class="modal confirm-modal">
     <div class="confirm-icon" id="pw-icon" style="background: var(--grad-hero);"><i class="ti ti-lock"></i></div>
@@ -1289,7 +1301,7 @@ h1, h2, h3, .display {
 <div class="toast" id="toast"></div>
 
 <script>
-const APP_VERSION = '1.75.0';
+const APP_VERSION = '1.77.0';
 
 const SETTINGS_KEY = 'iet:settings:v1';
 const LANG_OPTIONS = {
@@ -1533,7 +1545,13 @@ const T = {
     batch_label: 'ຊຸດ',
     he_owes_net: 'ເຂົາຍັງຕິດສຸດທິ',
     search_agent_placeholder: 'ຄົ້ນຫາຊື່ຕົວແທນ...',
-    no_agent_match: 'ບໍ່ພົບຕົວແທນທີ່ກົງກັບ'
+    no_agent_match: 'ບໍ່ພົບຕົວແທນທີ່ກົງກັບ',
+    confirm_save_title: 'ຢືນຢັນການບັນທຶກ',
+    confirm_save_subtitle: 'ກະລຸນາກວດສອບຄວາມຖືກຕ້ອງ',
+    confirm_save_summary: 'ສະຫຼຸບ',
+    confirm_yes_save: 'ຖືກຕ້ອງ ບັນທຶກ',
+    confirm_back_edit: 'ກັບໄປແກ້ໄຂ'
+
 
 
 
@@ -1829,7 +1847,13 @@ const T = {
     batch_label: 'ชุด',
     he_owes_net: 'เขายังติดสุทธิ',
     search_agent_placeholder: 'ค้นหาชื่อตัวแทน...',
-    no_agent_match: 'ไม่พบตัวแทนที่ตรงกับ'
+    no_agent_match: 'ไม่พบตัวแทนที่ตรงกับ',
+    confirm_save_title: 'ยืนยันการบันทึก',
+    confirm_save_subtitle: 'กรุณาตรวจสอบความถูกต้อง',
+    confirm_save_summary: 'สรุป',
+    confirm_yes_save: 'ถูกต้อง บันทึก',
+    confirm_back_edit: 'กลับไปแก้ไข'
+
 
 
 
@@ -2094,6 +2118,181 @@ document.getElementById('confirm-modal').addEventListener('click', (e) => {
   if (e.target.id === 'confirm-modal') {
     document.getElementById('confirm-modal').classList.remove('show');
     confirmCallback = null;
+  }
+});
+
+// Pending save state — populated when user clicks save, committed when they confirm
+let pendingSaveCallback = null;
+
+function showSaveConfirm(summaryHtml, onConfirm) {
+  pendingSaveCallback = onConfirm;
+  document.getElementById('confirm-save-summary').innerHTML = summaryHtml;
+  document.getElementById('confirm-save-modal').classList.add('show');
+}
+
+// Build summary for single transaction (income/expense from transactions form)
+function buildTxConfirmSummary(tx, agent) {
+  const isIncome = tx.type === 'income';
+  const iconCls = isIncome ? 'ti-arrow-down' : 'ti-arrow-up';
+  const iconBg = isIncome ? 'rgba(91, 168, 132, 0.18)' : 'rgba(217, 122, 122, 0.18)';
+  const iconColor = isIncome ? 'var(--green)' : 'var(--red)';
+  const amountColor = isIncome ? 'var(--green)' : 'var(--red)';
+  const sign = isIncome ? '+' : '-';
+  const grad = agent ? agentGradient(agent.name) : 'var(--grad-hero)';
+  const commission = isIncome && agent ? tx.amount * (agent.percent / 100) : 0;
+  const kickback = !isIncome && tx.kickback ? tx.amount * (tx.kickback / 100) : 0;
+
+  const agentBlock = agent ? `
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface-2); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border);">
+      <div class="kickback-avatar" style="background: ${grad}; --name-grad: ${grad};">${escapeHtml(agent.name.slice(0, 2).toUpperCase())}</div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 15px; font-weight: 600; color: var(--text);">${escapeHtml(agent.name)}</div>
+        <div style="font-size: 12px; color: var(--text-2);">${tt('commission')} ${agent.percent}%</div>
+      </div>
+    </div>` : '';
+
+  const billRow = `<div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--surface-2); border-radius: 11px; border: 1px solid var(--border); margin-bottom: 6px;">
+    <div style="width: 32px; height: 32px; border-radius: 9px; background: ${iconBg}; color: ${iconColor}; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;"><i class="ti ${iconCls}"></i></div>
+    <div style="flex: 1; min-width: 0;">
+      <div style="font-size: 13px; font-weight: 600; color: var(--text);">${formatThaiDate(tx.date)}</div>
+      ${tx.desc ? `<div style="font-size: 12px; color: var(--text-2); margin-top: 2px;">${escapeHtml(tx.desc)}</div>` : ''}
+    </div>
+    <div style="text-align: right; flex-shrink: 0;">
+      <div style="font-size: 16px; font-weight: 700; color: ${amountColor}; font-family: var(--font-display); white-space: nowrap;">${sign}${fmt(tx.amount)} ₭</div>
+    </div>
+  </div>`;
+
+  let totalsHtml = '';
+  if (commission > 0 || kickback > 0) {
+    totalsHtml = `<div style="padding: 12px; background: linear-gradient(135deg, rgba(124, 122, 217, 0.10) 0%, rgba(164, 140, 208, 0.10) 100%); border-radius: 12px; border: 1px solid var(--border-2); margin-top: 8px;">
+      <div style="font-size: 12px; color: var(--text-2); font-weight: 600; margin-bottom: 6px;"><i class="ti ti-calculator"></i> ${tt('confirm_save_summary')}</div>
+      ${commission > 0 ? `<div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-2);">${tt('commission')}</span><span style="font-weight: 600; color: var(--pink); font-family: var(--font-display);">-${fmt(commission)} ₭</span></div>` : ''}
+      ${kickback > 0 ? `<div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-2);">${tt('kb_from_him')}</span><span style="font-weight: 600; color: var(--primary); font-family: var(--font-display);">+${fmt(kickback)} ₭</span></div>` : ''}
+    </div>`;
+  }
+
+  return agentBlock + billRow + totalsHtml;
+}
+
+// Build summary for agent add/edit
+function buildAgentConfirmSummary(agent, mode) {
+  const grad = agentGradient(agent.name);
+  const modeLabel = mode === 'add' ? (tt('add_agent_q') || 'เพิ่มตัวแทน') : (tt('edit_agent') || 'แก้ไขตัวแทน');
+  return `<div style="display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--surface-2); border-radius: 12px; border: 1px solid var(--border);">
+    <div class="kickback-avatar" style="background: ${grad}; --name-grad: ${grad}; width: 50px; height: 50px; font-size: 20px;">${escapeHtml(agent.name.slice(0, 2).toUpperCase())}</div>
+    <div style="flex: 1; min-width: 0;">
+      <div style="font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">${modeLabel}</div>
+      <div style="font-size: 17px; font-weight: 700; color: var(--text);">${escapeHtml(agent.name)}</div>
+      <div style="font-size: 13px; color: var(--text-2); margin-top: 2px;"><i class="ti ti-percentage"></i> ${tt('commission')} <strong style="color: var(--primary); font-family: var(--font-display);">${agent.percent}%</strong></div>
+    </div>
+  </div>`;
+}
+
+// Build summary for a payment action
+function buildPaymentConfirmSummary(opts) {
+  // opts: { title, agent, amount, billDesc, dateStr, label, sign, color }
+  const grad = opts.agent ? agentGradient(opts.agent.name) : 'var(--grad-orange)';
+  const agentBlock = opts.agent ? `
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface-2); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border);">
+      <div class="kickback-avatar" style="background: ${grad}; --name-grad: ${grad};">${escapeHtml(opts.agent.name.slice(0, 2).toUpperCase())}</div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 15px; font-weight: 600; color: var(--text);">${escapeHtml(opts.agent.name)}</div>
+        ${opts.label ? `<div style="font-size: 12px; color: var(--text-2);">${opts.label}</div>` : ''}
+      </div>
+    </div>` : '';
+
+  return agentBlock + `<div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--surface-2); border-radius: 11px; border: 1px solid var(--border);">
+    <div style="width: 38px; height: 38px; border-radius: 10px; background: ${opts.color === 'red' ? 'rgba(217, 122, 122, 0.18)' : 'rgba(91, 168, 132, 0.18)'}; color: ${opts.color === 'red' ? 'var(--red)' : 'var(--green)'}; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;"><i class="ti ti-wallet"></i></div>
+    <div style="flex: 1; min-width: 0;">
+      <div style="font-size: 14px; font-weight: 600; color: var(--text);">${opts.title}</div>
+      ${opts.billDesc ? `<div style="font-size: 12px; color: var(--text-2); margin-top: 2px;">${escapeHtml(opts.billDesc)}</div>` : ''}
+      ${opts.dateStr ? `<div style="font-size: 11px; color: var(--text-3); margin-top: 2px;">${opts.dateStr}</div>` : ''}
+    </div>
+    <div style="text-align: right; flex-shrink: 0;">
+      <div style="font-size: 19px; font-weight: 700; color: ${opts.color === 'red' ? 'var(--red)' : 'var(--green)'}; font-family: var(--font-display); white-space: nowrap;">${opts.sign || ''}${fmt(opts.amount)} ₭</div>
+    </div>
+  </div>`;
+}
+
+function showSaveConfirmation(newTxs, agent, skipped, expAdded) {
+  const incomeTxs = newTxs.filter(t => t.type === 'income');
+  const expenseTxs = newTxs.filter(t => t.type === 'expense');
+  const totalIncome = incomeTxs.reduce((s, t) => s + t.amount, 0);
+  const totalExpense = expenseTxs.reduce((s, t) => s + t.amount, 0);
+  const totalCommission = incomeTxs.reduce((s, t) => s + t.amount * (getAgentPercentForTx(t) / 100), 0);
+  const totalKickback = expenseTxs.reduce((s, t) => s + (t.kickback ? t.amount * (t.kickback / 100) : 0), 0);
+
+  const grad = agent ? agentGradient(agent.name) : 'var(--grad-hero)';
+  const agentBlock = agent ? `
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface-2); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border);">
+      <div class="kickback-avatar" style="background: ${grad}; --name-grad: ${grad};">${escapeHtml(agent.name.slice(0, 2).toUpperCase())}</div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 15px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(agent.name)}</div>
+        <div style="font-size: 12px; color: var(--text-2);">${tt('commission')} ${agent.percent}%</div>
+      </div>
+    </div>` : '';
+
+  const billRowsHtml = newTxs.map((t, idx) => {
+    const isIncome = t.type === 'income';
+    const iconCls = isIncome ? 'ti-arrow-down' : 'ti-arrow-up';
+    const iconBg = isIncome ? 'rgba(91, 168, 132, 0.18)' : 'rgba(217, 122, 122, 0.18)';
+    const iconColor = isIncome ? 'var(--green)' : 'var(--red)';
+    const amountColor = isIncome ? 'var(--green)' : 'var(--red)';
+    const sign = isIncome ? '+' : '-';
+    const pctLabel = isIncome
+      ? `${getAgentPercentForTx(t)}% ${tt('commission')}`
+      : (t.kickback ? `${t.kickback}% ${tt('sum_kb_label') || 'ค่าคอม'}` : '');
+    const unpaidBadge = t.unpaid
+      ? `<span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: rgba(224, 168, 117, 0.25); color: var(--orange); font-weight: 600;"><i class="ti ti-clock-dollar"></i> ${tt('not_paid_yet')}</span>`
+      : `<span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: rgba(91, 168, 132, 0.25); color: var(--green); font-weight: 600;"><i class="ti ti-circle-check"></i> ${isIncome ? tt('already_paid_income') : tt('already_paid_expense')}</span>`;
+    return `<div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--surface-2); border-radius: 11px; border: 1px solid var(--border); margin-bottom: 6px;">
+      <div style="width: 32px; height: 32px; border-radius: 9px; background: ${iconBg}; color: ${iconColor}; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;"><i class="ti ${iconCls}"></i></div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 13px; font-weight: 600; color: var(--text);">${formatThaiDate(t.date)}</div>
+        <div style="font-size: 11px; color: var(--text-3); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 2px;">
+          ${pctLabel ? `<span>${pctLabel}</span>` : ''}
+          ${unpaidBadge}
+        </div>
+      </div>
+      <div style="text-align: right; flex-shrink: 0;">
+        <div style="font-size: 16px; font-weight: 700; color: ${amountColor}; font-family: var(--font-display); white-space: nowrap;">${sign}${fmt(t.amount)} ₭</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const totalsHtml = `<div style="padding: 12px; background: linear-gradient(135deg, rgba(124, 122, 217, 0.10) 0%, rgba(164, 140, 208, 0.10) 100%); border-radius: 12px; border: 1px solid var(--border-2); margin-top: 8px;">
+    <div style="font-size: 12px; color: var(--text-2); font-weight: 600; margin-bottom: 6px;"><i class="ti ti-calculator"></i> ${tt('confirm_save_summary')}</div>
+    ${incomeTxs.length > 0 ? `<div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 3px;"><span style="color: var(--text-2);">${tt('income_label')} (${incomeTxs.length})</span><span style="font-weight: 600; color: var(--green); font-family: var(--font-display);">+${fmt(totalIncome)} ₭</span></div>` : ''}
+    ${totalCommission > 0 ? `<div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 3px;"><span style="color: var(--text-2);">${tt('commission')}</span><span style="font-weight: 600; color: var(--pink); font-family: var(--font-display);">-${fmt(totalCommission)} ₭</span></div>` : ''}
+    ${expenseTxs.length > 0 ? `<div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 3px;"><span style="color: var(--text-2);">${tt('expense_label')} (${expenseTxs.length})</span><span style="font-weight: 600; color: var(--red); font-family: var(--font-display);">-${fmt(totalExpense)} ₭</span></div>` : ''}
+    ${totalKickback > 0 ? `<div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-2);">${tt('kb_from_him')}</span><span style="font-weight: 600; color: var(--primary); font-family: var(--font-display);">+${fmt(totalKickback)} ₭</span></div>` : ''}
+  </div>`;
+
+  showSaveConfirm(agentBlock + billRowsHtml + totalsHtml, () => {
+    transactions.push(...newTxs);
+    saveTx();
+    renderAll();
+    const incomeCount = newTxs.length - expAdded;
+    let msg = `${tt('bills_saved')}: ${incomeCount} ${tt('sales_count')}`;
+    if (expAdded) msg += `, 1 ${tt('expense_label')}`;
+    if (skipped > 0) msg += ` (${tt('skipped')} ${skipped})`;
+    showToast(msg, 'success');
+  });
+}
+
+document.getElementById('confirm-save-cancel').addEventListener('click', () => {
+  document.getElementById('confirm-save-modal').classList.remove('show');
+  pendingSaveCallback = null;
+});
+document.getElementById('confirm-save-ok').addEventListener('click', () => {
+  document.getElementById('confirm-save-modal').classList.remove('show');
+  if (pendingSaveCallback) pendingSaveCallback();
+  pendingSaveCallback = null;
+});
+document.getElementById('confirm-save-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'confirm-save-modal') {
+    document.getElementById('confirm-save-modal').classList.remove('show');
+    pendingSaveCallback = null;
   }
 });
 
@@ -2974,6 +3173,7 @@ function renderAgents() {
   el.querySelectorAll('[data-save-bill]').forEach(b => {
     b.addEventListener('click', () => {
       const id = b.dataset.saveBill;
+      const agent = getAgent(id);
       const rowsContainer = document.querySelector(`[data-bill-rows="${id}"]`);
       const rows = rowsContainer.querySelectorAll('.bill-input-row');
       const newTxs = [];
@@ -2990,7 +3190,6 @@ function renderAgents() {
         const tx = { id: uid(), type: 'income', date, desc: '', amount, agentId: id, batchId };
         // Only save percent override if user entered a custom value
         if (!isNaN(rowPctRaw) && rowPctRaw >= 0 && rowPctRaw <= 100) {
-          const agent = getAgent(id);
           if (!agent || rowPctRaw !== agent.percent) {
             tx.percent = rowPctRaw;
           }
@@ -3017,14 +3216,8 @@ function renderAgents() {
       }
 
       if (newTxs.length === 0) { showToast(tt('enter_at_least_one'), 'error'); return; }
-      transactions.push(...newTxs);
-      saveTx();
-      renderAll();
-      const incomeCount = newTxs.length - expAdded;
-      let msg = `${tt('bills_saved')}: ${incomeCount} ${tt('sales_count')}`;
-      if (expAdded) msg += `, 1 ${tt('expense_label')}`;
-      if (skipped > 0) msg += ` (${tt('skipped')} ${skipped})`;
-      showToast(msg, 'success');
+      // Show confirmation dialog instead of saving immediately
+      showSaveConfirmation(newTxs, agent, skipped, expAdded);
     });
   });
 
@@ -4412,34 +4605,46 @@ function addBatchPayment() {
     return;
   }
 
-  // Apply payment to the NET side only (FIFO)
   const isAgentOwes = netRemaining > 0;
-  const targetBills = isAgentOwes ? incomeBills : expenseBills;
-  const sortedBills = [...targetBills].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-  let remaining = amount;
-  for (const tx of sortedBills) {
-    if (remaining <= 0.01) break;
-    const billRem = billRemaining(tx);
-    if (billRem <= 0.01) continue;
-    const payAmount = Math.min(billRem, remaining);
-    if (!tx.payments) tx.payments = [];
-    tx.payments.push({ id: uid(), date, amount: payAmount });
-    remaining -= payAmount;
-  }
-  saveTx();
-  renderAll();
-  // Re-check
-  const newBills = getBatchBills(ctx);
-  const newIncome = newBills.filter(t => t.type === 'income').reduce((s, t) => s + billRemaining(t), 0);
-  const newExpense = newBills.filter(t => t.type === 'expense').reduce((s, t) => s + billRemaining(t), 0);
-  const newAbsNet = Math.abs(newIncome - newExpense);
-  if (newAbsNet < 0.01) {
-    closePaymentsModal();
-    showToast(tt('settled_message'), 'success');
-  } else {
-    renderBatchPaymentsModal();
-    showToast(tt('payment_added'), 'success');
-  }
+  const agent = ctx.agentId ? getAgent(ctx.agentId) : null;
+  const summary = buildPaymentConfirmSummary({
+    title: isAgentOwes ? tt('collect_payment') : tt('pay_to_agent'),
+    agent,
+    amount,
+    dateStr: formatThaiDate(date),
+    label: isAgentOwes ? tt('he_still_owes') + ' ' + fmt(absNet) + ' ₭' : tt('we_still_owe') + ' ' + fmt(absNet) + ' ₭',
+    sign: isAgentOwes ? '+' : '-',
+    color: isAgentOwes ? 'green' : 'red'
+  });
+
+  showSaveConfirm(summary, () => {
+    // Apply payment to the NET side only (FIFO)
+    const targetBills = isAgentOwes ? incomeBills : expenseBills;
+    const sortedBills = [...targetBills].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+    let remaining = amount;
+    for (const tx of sortedBills) {
+      if (remaining <= 0.01) break;
+      const billRem = billRemaining(tx);
+      if (billRem <= 0.01) continue;
+      const payAmount = Math.min(billRem, remaining);
+      if (!tx.payments) tx.payments = [];
+      tx.payments.push({ id: uid(), date, amount: payAmount });
+      remaining -= payAmount;
+    }
+    saveTx();
+    renderAll();
+    const newBills = getBatchBills(ctx);
+    const newIncome = newBills.filter(t => t.type === 'income').reduce((s, t) => s + billRemaining(t), 0);
+    const newExpense = newBills.filter(t => t.type === 'expense').reduce((s, t) => s + billRemaining(t), 0);
+    const newAbsNet = Math.abs(newIncome - newExpense);
+    if (newAbsNet < 0.01) {
+      closePaymentsModal();
+      showToast(tt('settled_message'), 'success');
+    } else {
+      renderBatchPaymentsModal();
+      showToast(tt('payment_added'), 'success');
+    }
+  });
 }
 
 function payBatchInFull() {
@@ -4592,12 +4797,26 @@ function addPaymentToBill() {
     showToast(tt('payment_too_much'), 'error');
     return;
   }
-  if (!tx.payments) tx.payments = [];
-  tx.payments.push({ id: uid(), date, amount });
-  saveTx();
-  renderPaymentsModal();
-  renderAll();
-  showToast(tt('payment_added'), 'success');
+  const ag = tx.agentId ? getAgent(tx.agentId) : null;
+  const isIncome = tx.type === 'income';
+  const summary = buildPaymentConfirmSummary({
+    title: isIncome ? tt('collect_payment') : tt('pay_to_agent'),
+    agent: ag,
+    amount,
+    billDesc: tx.desc || (isIncome ? tt('income_label') : tt('expense_label')),
+    dateStr: formatThaiDate(date),
+    label: isIncome ? tt('total_due') + ' ' + fmt(billDue(tx)) + ' ₭' : tt('we_owe_to_agent') + ' ' + fmt(billDue(tx)) + ' ₭',
+    sign: isIncome ? '+' : '-',
+    color: isIncome ? 'green' : 'red'
+  });
+  showSaveConfirm(summary, () => {
+    if (!tx.payments) tx.payments = [];
+    tx.payments.push({ id: uid(), date, amount });
+    saveTx();
+    renderPaymentsModal();
+    renderAll();
+    showToast(tt('payment_added'), 'success');
+  });
 }
 
 // Auto-settle: pay off as much as possible on both sides using offset
@@ -4870,40 +5089,54 @@ document.getElementById('save-edit-tx-btn').addEventListener('click', () => {
   const amount = parseAmount(document.getElementById('edit-tx-amount').value);
   const agentId = document.getElementById('edit-tx-agent').value;
   if (!amount || amount <= 0 || isNaN(amount)) { showToast(tt('fill_amount'), 'error'); return; }
-  tx.type = type;
-  tx.date = date;
-  tx.desc = desc;
-  tx.amount = amount;
-  tx.agentId = agentId;
+
+  // Capture intended new values without mutating tx yet
+  const newValues = { type, date, desc, amount, agentId };
   if (type === 'expense') {
     const kb = parseFloat(document.getElementById('edit-tx-kickback').value);
-    if (!isNaN(kb) && kb > 0 && kb <= 100) tx.kickback = kb;
-    else delete tx.kickback;
-    delete tx.percent;
+    if (!isNaN(kb) && kb > 0 && kb <= 100) newValues.kickback = kb;
   } else {
-    delete tx.kickback;
-    // Handle per-bill percent override (income only)
     const pctRaw = document.getElementById('edit-tx-percent').value.trim();
-    if (pctRaw === '') {
-      delete tx.percent;
-    } else {
+    if (pctRaw !== '') {
       const pctVal = parseFloat(pctRaw);
       if (!isNaN(pctVal) && pctVal >= 0 && pctVal <= 100) {
         const ag = agents.find(a => a.id === agentId);
         if (!agentId || !ag || pctVal !== ag.percent) {
-          tx.percent = pctVal;
-        } else {
-          delete tx.percent;
+          newValues.percent = pctVal;
         }
-      } else {
-        delete tx.percent;
       }
     }
   }
-  saveTx();
-  renderAll();
-  closeEditTxModal();
-  showToast(tt('record_edited'), 'success');
+
+  // Build preview tx for summary display
+  const previewTx = { ...tx, ...newValues };
+  if (type === 'income') delete previewTx.kickback;
+  if (type === 'expense') delete previewTx.percent;
+  if (!newValues.kickback) delete previewTx.kickback;
+  if (newValues.percent === undefined && type === 'income') delete previewTx.percent;
+  const ag = agentId ? getAgent(agentId) : null;
+  const summary = buildTxConfirmSummary(previewTx, ag);
+
+  showSaveConfirm(summary, () => {
+    tx.type = type;
+    tx.date = date;
+    tx.desc = desc;
+    tx.amount = amount;
+    tx.agentId = agentId;
+    if (type === 'expense') {
+      if (newValues.kickback) tx.kickback = newValues.kickback;
+      else delete tx.kickback;
+      delete tx.percent;
+    } else {
+      delete tx.kickback;
+      if (newValues.percent !== undefined) tx.percent = newValues.percent;
+      else delete tx.percent;
+    }
+    saveTx();
+    renderAll();
+    closeEditTxModal();
+    showToast(tt('record_edited'), 'success');
+  });
 });
 
 document.getElementById('save-edit-agent-btn').addEventListener('click', () => {
@@ -4914,12 +5147,15 @@ document.getElementById('save-edit-agent-btn').addEventListener('click', () => {
   const percent = parseFloat(document.getElementById('edit-agent-percent').value);
   if (!name) { showToast(tt('fill_agent_name'), 'error'); return; }
   if (isNaN(percent) || percent < 0 || percent > 100) { showToast(tt('percent_range'), 'error'); return; }
-  ag.name = name;
-  ag.percent = percent;
-  saveAgents();
-  renderAll();
-  closeEditAgentModal();
-  showToast(tt('agent_updated'), 'success');
+  const summary = buildAgentConfirmSummary({ name, percent }, 'edit');
+  showSaveConfirm(summary, () => {
+    ag.name = name;
+    ag.percent = percent;
+    saveAgents();
+    renderAll();
+    closeEditAgentModal();
+    showToast(tt('agent_updated'), 'success');
+  });
 });
 
 document.getElementById('tx-date').value = todayStr();
@@ -4943,14 +5179,18 @@ document.getElementById('add-tx-btn').addEventListener('click', () => {
     const kb = parseFloat(document.getElementById('tx-kickback').value);
     if (!isNaN(kb) && kb > 0 && kb <= 100) tx.kickback = kb;
   }
-  transactions.push(tx);
-  saveTx();
-  document.getElementById('tx-desc').value = '';
-  document.getElementById('tx-amount').value = '';
-  document.getElementById('tx-kickback').value = '';
-  updateKickbackPreview();
-  renderAll();
-  showToast(type === 'income' ? tt('income_added') : tt('expense_added'), 'success');
+  const ag = agentId ? getAgent(agentId) : null;
+  const summary = buildTxConfirmSummary(tx, ag);
+  showSaveConfirm(summary, () => {
+    transactions.push(tx);
+    saveTx();
+    document.getElementById('tx-desc').value = '';
+    document.getElementById('tx-amount').value = '';
+    document.getElementById('tx-kickback').value = '';
+    updateKickbackPreview();
+    renderAll();
+    showToast(type === 'income' ? tt('income_added') : tt('expense_added'), 'success');
+  });
 });
 
 document.getElementById('add-agent-btn').addEventListener('click', () => {
@@ -4958,12 +5198,15 @@ document.getElementById('add-agent-btn').addEventListener('click', () => {
   const percent = parseFloat(document.getElementById('agent-percent').value);
   if (!name) { showToast(tt('fill_agent_name'), 'error'); return; }
   if (isNaN(percent) || percent < 0 || percent > 100) { showToast(tt('percent_range'), 'error'); return; }
-  agents.push({id: uid(), name, percent});
-  saveAgents();
-  document.getElementById('agent-name').value = '';
-  document.getElementById('agent-percent').value = '';
-  renderAll();
-  showToast(tt('agent_added'), 'success');
+  const summary = buildAgentConfirmSummary({ name, percent }, 'add');
+  showSaveConfirm(summary, () => {
+    agents.push({id: uid(), name, percent});
+    saveAgents();
+    document.getElementById('agent-name').value = '';
+    document.getElementById('agent-percent').value = '';
+    renderAll();
+    showToast(tt('agent_added'), 'success');
+  });
 });
 
 document.getElementById('filter-type').addEventListener('change', renderTransactions);
