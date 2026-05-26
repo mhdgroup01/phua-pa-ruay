@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#6366f1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>M</title>
+<title>ผัวพารวย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&family=Noto+Sans+Lao:wght@300;400;500;600;700&family=Noto+Serif+Lao:wght@400;500;600;700&family=Phetsarath:wght@400;700&family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -672,7 +672,17 @@ h1, h2, h3, .display {
 .quick-btn-secondary:hover { background: rgba(255,255,255,0.28); }
 
 .bill-rows { display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; padding-right: 4px; }
-.bill-input-row { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 10px; animation: slideDown 0.18s ease-out; }
+.bill-input-row { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 12px; animation: slideDown 0.18s ease-out; }
+/* Vertical stacked layout for bill fields — better for mobile */
+.bill-row-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.bill-row-title { flex: 1; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.92); }
+.bill-row-field { display: flex; flex-direction: column; gap: 5px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.10); }
+.bill-row-field:first-of-type { padding-top: 0; border-top: none; }
+.bill-row-label { font-size: 12px; color: rgba(255,255,255,0.80); font-weight: 500; display: flex; align-items: center; gap: 5px; letter-spacing: 0.02em; }
+.bill-row-label i { font-size: 14px; }
+.pct-input-wrap { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; background: rgba(255,255,255,0.90); border-radius: 10px; padding: 0 8px; }
+.pct-input-wrap input { border: none; background: transparent; padding: 10px 0; font-size: 17px; color: #1e1b4b; font-family: inherit; outline: none; width: 100%; font-weight: 600; }
+.pct-suffix { font-size: 14px; color: #6b7280; padding-right: 2px; font-weight: 500; }
 .unpaid-toggle { display: flex; align-items: center; gap: 8px; padding: 6px 4px 2px; cursor: pointer; user-select: none; font-size: 13px; opacity: 0.85; }
 .unpaid-toggle input { display: none; }
 .unpaid-check { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
@@ -1276,7 +1286,7 @@ h1, h2, h3, .display {
 <div class="toast" id="toast"></div>
 
 <script>
-const APP_VERSION = '1.73.0';
+const APP_VERSION = '1.74.0';
 
 const SETTINGS_KEY = 'iet:settings:v1';
 const LANG_OPTIONS = {
@@ -2554,24 +2564,33 @@ function renderAgents() {
 
         <div class="expense-special-section" style="margin-top: 12px;">
           <div style="font-size: 13px; opacity: 0.9; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;"><i class="ti ti-arrow-up-circle"></i> ${tt('specialExpense')}</div>
-          <div class="expense-special-row" data-expense-agent="${a.id}">
-            <div style="display: grid; grid-template-columns: 1.1fr 1.4fr 0.9fr; gap: 6px; align-items: center; margin-bottom: 6px;">
+          <div class="expense-special-row bill-input-row" data-expense-agent="${a.id}">
+            <div class="bill-row-field">
+              <label class="bill-row-label"><i class="ti ti-calendar"></i> ${tt('fromDate') || 'วันที่'}</label>
               <input type="date" class="quick-field" data-exp-date value="${todayStr()}">
+            </div>
+            <div class="bill-row-field">
+              <label class="bill-row-label"><i class="ti ti-cash"></i> ${tt('expenseAmount')}</label>
               <input type="text" inputmode="decimal" class="quick-field bill-amount" data-exp-amount placeholder="${tt('expenseAmount')}" autocomplete="off">
-              <div style="display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; background: rgba(255,255,255,0.9); border-radius: 10px; padding: 0 4px 0 8px;">
-                <input type="number" inputmode="decimal" min="0" max="100" step="0.1" data-exp-kickback placeholder="%" style="border: none; background: transparent; padding: 10px 0; font-size: 17px; color: #1e1b4b; font-family: inherit; outline: none; width: 100%; font-weight: 600;">
-                <span style="font-size: 14px; color: #6b7280; padding-right: 6px;">%</span>
+            </div>
+            <div class="bill-row-field">
+              <label class="bill-row-label"><i class="ti ti-receipt-refund"></i> ${tt('sum_kb_label') || 'ค่าคอม'}</label>
+              <div class="pct-input-wrap">
+                <input type="number" inputmode="decimal" min="0" max="100" step="0.1" data-exp-kickback placeholder="0">
+                <span class="pct-suffix">%</span>
               </div>
             </div>
-            <label class="unpaid-toggle" style="margin: 0 0 6px;">
-              <input type="checkbox" data-exp-unpaid checked>
-              <span class="unpaid-check"></span>
-              <span class="unpaid-label-text">
-                <span class="label-state-unpaid"><i class="ti ti-clock-dollar"></i> ${tt('not_paid_yet_expense')}</span>
-                <span class="label-state-paid"><i class="ti ti-circle-check"></i> ${tt('already_paid_expense')}</span>
-              </span>
-            </label>
-            <div data-exp-preview style="display: none; font-size: 13px; padding: 8px 10px; background: rgba(91, 168, 132, 0.14); border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);"></div>
+            <div class="bill-row-field" style="border: none; padding-top: 4px;">
+              <label class="unpaid-toggle" style="margin: 0;">
+                <input type="checkbox" data-exp-unpaid checked>
+                <span class="unpaid-check"></span>
+                <span class="unpaid-label-text">
+                  <span class="label-state-unpaid"><i class="ti ti-clock-dollar"></i> ${tt('not_paid_yet_expense')}</span>
+                  <span class="label-state-paid"><i class="ti ti-circle-check"></i> ${tt('already_paid_expense')}</span>
+                </span>
+              </label>
+            </div>
+            <div data-exp-preview style="display: none; font-size: 13px; padding: 8px 10px; background: rgba(91, 168, 132, 0.14); border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); margin-top: 6px;"></div>
           </div>
         </div>
 
@@ -2609,18 +2628,27 @@ function renderAgents() {
     const ag = getAgent(agentId);
     const defaultPct = ag ? ag.percent : 0;
     return `<div class="bill-input-row" data-row-idx="${idx}">
-      <div style="display: grid; grid-template-columns: auto 1.1fr 1.4fr auto; gap: 6px; align-items: center;">
+      <div class="bill-row-header">
         <div class="row-num" data-row-num>${idx + 1}</div>
-        <input type="date" class="quick-field" data-row-date value="${todayStr()}">
-        <input type="text" inputmode="decimal" class="quick-field bill-amount" data-row-amount data-agent-id="${agentId}" placeholder="${tt('amount')}" autocomplete="off">
+        <div class="bill-row-title">${tt('new_bill_seq')} ${idx + 1}</div>
         <button class="row-del-btn" data-row-del aria-label="delete row"><i class="ti ti-x"></i></button>
       </div>
-      <div style="display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; margin-top: 6px;">
-        <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 4px; align-items: center; background: rgba(255,255,255,0.85); border-radius: 10px; padding: 0 6px 0 8px;">
-          <span style="font-size: 13px; color: #6b7280; font-weight: 500;"><i class="ti ti-percentage"></i> ${tt('bill_pct')}</span>
-          <input type="number" inputmode="decimal" min="0" max="100" step="0.1" data-row-pct data-default-pct="${defaultPct}" value="${defaultPct}" style="border: none; background: transparent; padding: 8px 4px; font-size: 16px; color: #1e1b4b; font-family: inherit; outline: none; text-align: right; width: 100%; font-weight: 600;">
-          <span style="font-size: 13px; color: #6b7280;">%</span>
+      <div class="bill-row-field">
+        <label class="bill-row-label"><i class="ti ti-calendar"></i> ${tt('fromDate') || 'วันที่'}</label>
+        <input type="date" class="quick-field" data-row-date value="${todayStr()}">
+      </div>
+      <div class="bill-row-field">
+        <label class="bill-row-label"><i class="ti ti-cash"></i> ${tt('amount')}</label>
+        <input type="text" inputmode="decimal" class="quick-field bill-amount" data-row-amount data-agent-id="${agentId}" placeholder="${tt('amount')}" autocomplete="off">
+      </div>
+      <div class="bill-row-field">
+        <label class="bill-row-label"><i class="ti ti-percentage"></i> ${tt('bill_pct')}</label>
+        <div class="pct-input-wrap">
+          <input type="number" inputmode="decimal" min="0" max="100" step="0.1" data-row-pct data-default-pct="${defaultPct}" value="${defaultPct}">
+          <span class="pct-suffix">%</span>
         </div>
+      </div>
+      <div class="bill-row-field" style="border: none; padding-top: 4px;">
         <label class="unpaid-toggle" data-row-unpaid-label style="margin: 0;">
           <input type="checkbox" data-row-unpaid checked>
           <span class="unpaid-check"></span>
